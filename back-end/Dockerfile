@@ -2,10 +2,10 @@ FROM node:18
 
 WORKDIR /app
 
-COPY back-end/package*.json ./
+COPY package*.json ./
 
 RUN npm install
 
-COPY back-end/ .
+COPY / .
 
 CMD ["npm", "start"]

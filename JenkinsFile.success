@@ -1,0 +1,61 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE_FRONT = "ismailcharfi/tp4-front:v1"
+        DOCKER_IMAGE_BACK = "ismailcharfi/tp4-back:v1"
+        GITHUB_REPOSIRORY = "https://github.com/IsmailCharfi/tp-deployment-monitoring"
+    }
+
+    stages {
+        stage('Pull from github') {
+            steps {
+               checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: env.GITHUB_REPOSIRORY]])
+            }
+        }
+
+    
+
+        stage ("Build back docker image") {
+            steps {
+                script {
+                    dir('back-end') {
+                        bat 'docker build -t %DOCKER_IMAGE_BACK% .'
+                    }
+                }
+            }
+        }
+
+        stage ("Test back end"){
+            agent {
+                docker {
+                    image env.DOCKER_IMAGE_BACK
+                    reuseNode true
+                }
+            }
+
+            steps {
+                script {
+                    bat 'pwd'
+                }
+            }
+        }
+
+        
+        stage ("Login to dockerhub") {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
+                        bat 'docker login -u %DOCKERHUB_USERNAME% -p %DOCKERHUB_PASSWORD%'
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            bat 'docker logout'
+        }
+    }
+}
