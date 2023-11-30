@@ -2,45 +2,35 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE_FRONT = "ismailcharfi/tp4-front:v1"
-        DOCKER_IMAGE_BACK = "ismailcharfi/tp4-back:v1"
-        GITHUB_REPOSIRORY = "https://github.com/IsmailCharfi/tp-deployment-monitoring"
+        DOCKER_IMAGE_FRONT = "ismailcharfi/tp4-frontend:latest"
+        DOCKER_IMAGE_BACK = "ismailcharfi/tp4-backend:latest"
+        GITHUB_REPOSITORY = "https://github.com/IsmailCharfi/tp-deployment-monitoring"
     }
 
     stages {
         stage('Pull from github') {
             steps {
-               checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: env.GITHUB_REPOSIRORY]])
+               checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: env.GITHUB_REPOSITORY]])
             }
         }
 
-    
-
-        stage ("Build back docker image") {
+        stage("Build images") {
             steps {
                 script {
-                    dir('back-end') {
-                        bat 'docker build -t %DOCKER_IMAGE_BACK% .'
-                    }
+                     bat 'docker-compose up -d'
                 }
             }
         }
-
-        stage ("Test back end"){
-            agent {
-                docker {
-                    image env.DOCKER_IMAGE_BACK
-                    reuseNode true
-                }
-            }
-
+        
+        stage("Testing inside containers") {
             steps {
                 script {
-                    bat 'pwd'
+                    bat 'docker exec tp4-backend npm run success-test'
+
+                    bat 'docker exec tp4-frontend npm run test'
                 }
             }
         }
-
         
         stage ("Login to dockerhub") {
             steps {
@@ -51,8 +41,17 @@ pipeline {
                 }
             }
         }
+        
+        stage ("Push image to dockerhub") {
+            steps {
+                script {
+                    bat 'docker push %DOCKER_IMAGE_FRONT%'
+                    bat 'docker push %DOCKER_IMAGE_BACK%'
+                }
+            }
+        }
     }
-    
+
     post {
         always {
             bat 'docker logout'
