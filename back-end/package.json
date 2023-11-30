@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "set PORT=5000 && node index.js",
-    "test": "mocha"
+    "start": "node server.js",
+    "test": "mocha",
+    "success-test": "set FAILURE=false & mocha",
+    "failure-test": "set FAILURE=true & mocha"
   },
   "author": "",
   "license": "ISC",
