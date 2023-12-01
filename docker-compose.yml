@@ -23,7 +23,7 @@ services:
       - "7070:7070"
     environment:
       PORT: 7070
-      API_PATH: "http://localhost:6060"
+      API_PATH: "https://api.todo.charfi.me/"
   mongodb:
     image: "mongo"
     ports:
