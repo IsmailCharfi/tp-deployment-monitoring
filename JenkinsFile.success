@@ -5,6 +5,7 @@ pipeline {
         DOCKER_IMAGE_FRONT = "ismailcharfi/tp4-frontend:latest"
         DOCKER_IMAGE_BACK = "ismailcharfi/tp4-backend:latest"
         GITHUB_REPOSITORY = "https://github.com/IsmailCharfi/tp-deployment-monitoring"
+        ipAddress = ""
     }
 
     stages {
@@ -17,7 +18,7 @@ pipeline {
         stage("Build images") {
             steps {
                 script {
-                     bat 'docker-compose up -d'
+                     sh 'docker-compose up -d'
                 }
             }
         }
@@ -25,9 +26,9 @@ pipeline {
         stage("Testing inside containers") {
             steps {
                 script {
-                    bat 'docker exec tp4-backend npm run success-test'
+                    sh 'docker exec tp4-backend npm run success-test'
 
-                    bat 'docker exec tp4-frontend npm run test'
+                    sh 'docker exec tp4-frontend npm run test'
                 }
             }
         }
@@ -36,7 +37,7 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
-                        bat 'docker login -u %DOCKERHUB_USERNAME% -p %DOCKERHUB_PASSWORD%'
+                        sh 'docker login -u %DOCKERHUB_USERNAME% -p %DOCKERHUB_PASSWORD%'
                     }
                 }
             }
@@ -45,9 +46,40 @@ pipeline {
         stage ("Push image to dockerhub") {
             steps {
                 script {
-                    bat 'docker push %DOCKER_IMAGE_FRONT%'
-                    bat 'docker push %DOCKER_IMAGE_BACK%'
+                    sh 'docker push %DOCKER_IMAGE_FRONT%'
+                    sh 'docker push %DOCKER_IMAGE_BACK%'
                 }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'azure', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                    script {
+                        sh 'az login -u %USERNAME% -p %PASSWORD%'
+                        sh 'terraform init'
+                        sh 'terraform apply -auto-approve'
+
+                        ipAddress = sh(script: 'terraform output public_ip', returnStdout: true).trim()
+                        echo "Azure VM Public IP Address: $ipAddress"
+                    }
+                }   
+            }
+        }
+
+        stage("deployement") {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'vm', passwordVariable: 'VM_PASSWORD', usernameVariable: 'VM_USERNAME')]) {
+                    script {
+                        sh 'ssh %USERNAME%:%PASSWORD%@%ipAddress%'
+                        sh 'sudo apt-get update && apt install docker.io docker-compose-plugin'
+                        sh 'sudo systemctl restart docker'
+                        sh 'cd ~/Desktop'
+                        sh 'git pull https://github.com/IsmailCharfi/tp-deployment-monitoring'
+                        sh 'cd tp-deployment-monitoring'
+                        sh 'docker-compose up -d'
+                    }
+                }   
             }
         }
     }
